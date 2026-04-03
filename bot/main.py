@@ -2,6 +2,7 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 
 from bot.settings import settings
 from bot.repo import Repo
@@ -14,7 +15,13 @@ from bot.routers.profile import profile_router
 from bot.routers.search import search_router
 
 async def main():
-    bot = Bot(token=settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    session = AiohttpSession(proxy=settings.proxy_url) if settings.proxy_url else AiohttpSession()
+
+    bot = Bot(
+        token=settings.bot_token,
+        session=session,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     dp = Dispatcher()
 
     repo = Repo(settings.db_path)
@@ -29,7 +36,11 @@ async def main():
     dp.include_router(search_router)
     dp.include_router(admin_router)
 
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
